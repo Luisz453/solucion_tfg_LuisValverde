@@ -168,7 +168,7 @@ class DespliegueDocker(QWidget):
     #funcion de imagen
     def listar_imagenes(self):
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "images", "--format", "table{{.Repository}}:{{.Tag}}------{{.ID}}------{{.Size}}" ]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + ["docker", "images", "--format", "table{{.Repository}}:{{.Tag}}------{{.ID}}------{{.Size}}" ]
         else:
             cmd = ["docker", "images", "--format", "table {{.Repository}}:{{.Tag}}------{{.ID}}------{{.Size}}" ]
         self.mostrar_texto("\n---Listando imágenes---\n \n")
@@ -200,7 +200,7 @@ class DespliegueDocker(QWidget):
         flags_finales = [os.path.expanduser(os.path.expandvars(flag)) for flag in flags_procesadas]
 
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "run", "--name", contenedor] + flags_finales + [imagen]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + ["docker", "run", "--name", contenedor] + flags_finales + [imagen]
         else:
             cmd = ["docker", "run", "--name", contenedor] + flags_finales + [imagen]
         
@@ -221,7 +221,7 @@ class DespliegueDocker(QWidget):
             return
         
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "pull", pull]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + ["docker", "pull", pull]
         else:
             cmd = ["docker", "pull", pull]
 
@@ -237,9 +237,14 @@ class DespliegueDocker(QWidget):
         if not ssh:
             self.mostrar_texto("Introduce el usuario y host, p. ej. lvalverde@192.168.1.66")
             return
-        self.dispositivo_remoto_nombre = ssh
+        #self.dispositivo_remoto_nombre = ssh
+        try:
+            self.dispositivo_remoto_nombre = shlex.split(ssh) if ssh else []
+        except ValueError as e:
+            self.mostrar_texto("Error al procesar el hostname \n")
+            return
         self.dispositivo_remoto_activo = True
-        self.mostrar_texto("\n---Dispositivo remoto " + self.dispositivo_remoto_nombre + "---\n")
+        self.mostrar_texto("\n---Dispositivo remoto " + ssh + "---\n")
 
     def usar_local(self):
         self.dispositivo_remoto_activo = False

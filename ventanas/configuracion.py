@@ -1,4 +1,5 @@
 import subprocess
+import shlex
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPalette, QColor
 from PyQt6.QtWidgets import (
@@ -184,9 +185,8 @@ class ConfiguracionDocker(QWidget):
 
 
     def listar_builders(self):
-        self.mostrar_texto(self.dispositivo_remoto_nombre)
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "buildx", "ls"]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + ["docker", "buildx", "ls"]
         else:
             cmd = ["docker", "buildx", "ls"]
 
@@ -205,7 +205,7 @@ class ConfiguracionDocker(QWidget):
             return 
         
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "buildx", "create", "--name", nombre_builder, "--driver", "docker-container"]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + ["docker", "buildx", "create", "--name", nombre_builder, "--driver", "docker-container"]
         else:
             cmd = ["docker", "buildx", "create", "--name", nombre_builder, "--driver", "docker-container"]
         
@@ -225,12 +225,17 @@ class ConfiguracionDocker(QWidget):
         if not builder_destino:
             self.mostrar_texto("Introducir nombre del builder al cual añadir el nodo")
             return
-        
+        try:
+            nombre_nodo_aux = shlex.split(nombre_nodo) if nombre_nodo else []
+        except ValueError as e:
+            self.mostrar_texto("Error al procesar el hostname \n")
+            return
+
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd1 = ["ssh", self.dispositivo_remoto_nombre, "docker", "buildx", "create", "--name", builder_destino, "--append", nombre_nodo]
-            cmd2 = ["ssh", self.dispositivo_remoto_nombre, "docker", "buildx", "inspect", "--builder", builder_destino, "--bootstrap"]
-        else:
-            cmd1 = ["docker", "buildx", "create", "--name", builder_destino, "--append", nombre_nodo]
+            cmd1 = ["ssh"] + self.dispositivo_remoto_nombre + ["docker", "buildx", "create", "--name", builder_destino, "--append", nombre_nodo]
+            cmd2 = ["ssh"] + self.dispositivo_remoto_nombre + ["docker", "buildx", "inspect", "--builder", builder_destino, "--bootstrap"]
+        else:        
+            cmd1 = ["docker", "buildx", "create", "--name", builder_destino,"--append", nombre_nodo]
             cmd2 = ["docker", "buildx", "inspect", "--builder", builder_destino, "--bootstrap"]
 
         self.mostrar_texto("\n---Añadiendo nodo "+ nombre_nodo + " a builder " + builder_destino + "---")
@@ -262,7 +267,7 @@ class ConfiguracionDocker(QWidget):
             return 
         
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "buildx", "create", "--driver", "cloud", nombre_cloud]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + ["docker", "buildx", "create", "--driver", "cloud", nombre_cloud]
         else:
             cmd = ["docker", "buildx", "create", "--driver", "cloud", nombre_cloud]
         
@@ -276,7 +281,7 @@ class ConfiguracionDocker(QWidget):
     #funcion para activar QEMU
     def activar_qemu(self):
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "run", "--privileged", "--rm", "tonistiigi/binfmt", "--install", "all"]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + [ "docker", "run", "--privileged", "--rm", "tonistiigi/binfmt", "--install", "all"]
         else:
             cmd = ["docker", "run", "--privileged", "--rm", "tonistiigi/binfmt", "--install", "all"]
         self.mostrar_texto("\n---Activando emulación por QEMU---\n\n")
@@ -292,9 +297,14 @@ class ConfiguracionDocker(QWidget):
         if not ssh:
             self.mostrar_texto("Introduce el usuario y host, p. ej. lvalverde@192.168.1.66")
             return
-        self.dispositivo_remoto_nombre = ssh
+        #self.dispositivo_remoto_nombre = ssh
+        try:
+            self.dispositivo_remoto_nombre = shlex.split(ssh) if ssh else []
+        except ValueError as e:
+            self.mostrar_texto("Error al procesar el hostname \n")
+            return
         self.dispositivo_remoto_activo = True
-        self.mostrar_texto("\n---Dispositivo remoto " + self.dispositivo_remoto_nombre + "---\n")
+        self.mostrar_texto("\n---Dispositivo remoto " + ssh + "---\n")
 
     def usar_local(self):
         self.dispositivo_remoto_activo = False

@@ -1,6 +1,8 @@
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPalette, QColor
+import shlex
+import os
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout, 
@@ -218,7 +220,7 @@ class GestionDocker(QWidget):
     #Funciones de imágenes
     def listar_imagenes(self):
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "images", "--format", "table{{.Repository}}:{{.Tag}}------{{.ID}}------{{.Size}}" ]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + [ "docker", "images", "--format", "table{{.Repository}}:{{.Tag}}------{{.ID}}------{{.Size}}" ]
         else:
             cmd = ["docker", "images", "--format", "table {{.Repository}}:{{.Tag}}------{{.ID}}------{{.Size}}" ]
         self.mostrar_texto("\n---Listando imágenes---\n \n")
@@ -234,7 +236,7 @@ class GestionDocker(QWidget):
             self.mostrar_texto("Introduce el nombre o ID de la imagen.")
             return
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "rmi", "-f", imagen]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + [ "docker", "rmi", "-f", imagen]
         else:
             cmd = ["docker", "rmi", "-f", imagen]
         self.mostrar_texto("\n---Eliminando imagen " + imagen + "---\n\n" )
@@ -248,7 +250,7 @@ class GestionDocker(QWidget):
     #Funciones de contenedores
     def listar_contenedores(self):
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "ps", "-a", "--format", "table{{.ID}}------{{.Names}}------{{.Status}}------{{.Image}}"]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + [ "docker", "ps", "-a", "--format", "table{{.ID}}------{{.Names}}------{{.Status}}------{{.Image}}"]
         else:
             cmd = ["docker", "ps", "-a", "--format", "table {{.ID}} | {{.Names}} | {{.Status}} | {{.Image}}"]
         self.mostrar_texto("\n---Listando contenedores---\n \n")
@@ -265,7 +267,7 @@ class GestionDocker(QWidget):
             self.mostrar_texto("Introduce el nombre o ID del contenedor.")
             return
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "rm", "-f", contenedor]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + ["docker", "rm", "-f", contenedor]
         else:
             cmd = ["docker","rm", "-f", contenedor]
         self.mostrar_texto("\n---Eliminando contenedor " + contenedor + "---\n\n" )
@@ -281,7 +283,7 @@ class GestionDocker(QWidget):
             self.mostrar_texto("Introduce el nombre o ID del contenedor.")
             return
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker","stop",  contenedor]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + [ "docker","stop",  contenedor]
         else:
             cmd = ["docker","stop",  contenedor]
 
@@ -294,9 +296,8 @@ class GestionDocker(QWidget):
 
     #Funciones de builders
     def listar_builders(self):
-        self.mostrar_texto(self.dispositivo_remoto_nombre)
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "buildx", "ls"]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + ["docker", "buildx", "ls"]
         else:
             cmd = ["docker", "buildx", "ls"]
 
@@ -315,7 +316,7 @@ class GestionDocker(QWidget):
             return
 
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "buildx", "rm", "-f", builder]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + [ "docker", "buildx", "rm", "-f", builder]
         else:
             cmd = ["docker", "buildx", "rm", "-f", builder]
 
@@ -333,7 +334,7 @@ class GestionDocker(QWidget):
             return
 
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "buildx", "prune", "--builder", cache, "--all", "-f"]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + [ "docker", "buildx", "prune", "--builder", cache, "--all", "-f"]
         else:
             cmd = ["docker", "buildx", "prune", "--builder", cache, "--all", "-f"]
 
@@ -351,9 +352,14 @@ class GestionDocker(QWidget):
         if not ssh:
             self.mostrar_texto("Introduce el usuario y host, p. ej. lvalverde@192.168.1.66")
             return
-        self.dispositivo_remoto_nombre = ssh
+        #self.dispositivo_remoto_nombre = ssh
+        try:
+            self.dispositivo_remoto_nombre = shlex.split(ssh) if ssh else []
+        except ValueError as e:
+            self.mostrar_texto("Error al procesar el hostname \n")
+            return
         self.dispositivo_remoto_activo = True
-        self.mostrar_texto("\n---Dispositivo remoto " + self.dispositivo_remoto_nombre + "---\n")
+        self.mostrar_texto("\n---Dispositivo remoto " + ssh + "---\n")
 
     def usar_local(self):
         self.dispositivo_remoto_activo = False

@@ -1,4 +1,5 @@
 import subprocess
+import shlex
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPalette, QColor
 from PyQt6.QtWidgets import (
@@ -196,7 +197,7 @@ class COnstruccionDocker(QWidget):
     #funciones de listado
     def listar_imagenes(self):
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "images", "--format", "table{{.Repository}}:{{.Tag}}------{{.ID}}------{{.Size}}" ]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + [ "docker", "images", "--format", "table{{.Repository}}:{{.Tag}}------{{.ID}}------{{.Size}}" ]
         else:
             cmd = ["docker", "images", "--format", "table {{.Repository}}:{{.Tag}}------{{.ID}}------{{.Size}}" ]
         self.mostrar_texto("\n---Listando imágenes---\n \n")
@@ -207,9 +208,8 @@ class COnstruccionDocker(QWidget):
         stream.start()
 
     def listar_builders(self):
-        self.mostrar_texto(self.dispositivo_remoto_nombre)
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
-            cmd = ["ssh", self.dispositivo_remoto_nombre, "docker", "buildx", "ls"]
+            cmd = ["ssh"] + self.dispositivo_remoto_nombre + [ "docker", "buildx", "ls"]
         else:
             cmd = ["docker", "buildx", "ls"]
 
@@ -242,8 +242,7 @@ class COnstruccionDocker(QWidget):
         
         if self.dispositivo_remoto_activo and self.dispositivo_remoto_nombre:
             cmd = [
-                "ssh", self.dispositivo_remoto_nombre,
-                "docker", "buildx", "build",
+                "ssh"] + self.dispositivo_remoto_nombre + ["docker", "buildx", "build",
                 "--builder", builder,
                 "--platform", plataformas,
                 "-t", imagen,
@@ -269,7 +268,7 @@ class COnstruccionDocker(QWidget):
                 self.mostrar_texto("Caché importada no especificada")
                 return
             else:
-                cmd.insert(-1, f"--cache-from=type=registry,ref={cache_from}")
+                cmd.insert(-1, f"--cache-from={cache_from}")
         
         if self.cb_cache_to.isChecked():
             cache_to = (self.input_cache_to.text() or "").strip()
@@ -277,7 +276,9 @@ class COnstruccionDocker(QWidget):
                 self.mostrar_texto("Caché a exportar no especificada")
                 return
             else:
-                cmd.insert(-1, f"--cache-to=type=registry,ref={cache_to}")
+                cmd.insert(-1, "-t")
+                cmd.insert(-1, f"{cache_to}")
+                cmd.insert(-1, "--cache-to=type=inline")
 
         self.mostrar_texto("---Comenzando build de la " + imagen + "---")
         stream = Stream(cmd)
@@ -299,9 +300,14 @@ class COnstruccionDocker(QWidget):
         if not ssh:
             self.mostrar_texto("Introduce el usuario y host, p. ej. lvalverde@192.168.1.66")
             return
-        self.dispositivo_remoto_nombre = ssh
+        #self.dispositivo_remoto_nombre = ssh
+        try:
+            self.dispositivo_remoto_nombre = shlex.split(ssh) if ssh else []
+        except ValueError as e:
+            self.mostrar_texto("Error al procesar el hostname \n")
+            return
         self.dispositivo_remoto_activo = True
-        self.mostrar_texto("\n---Dispositivo remoto " + self.dispositivo_remoto_nombre + "---\n")
+        self.mostrar_texto("\n---Dispositivo remoto " + ssh + "---\n")
 
     def usar_local(self):
         self.dispositivo_remoto_activo = False
